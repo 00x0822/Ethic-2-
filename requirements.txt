@@ -1,4 +1,3 @@
-google-generative-ai
 streamlit
 requests
 pandas
