@@ -2,4 +2,7 @@ streamlit
 pandas
 plotly
 Pillow
-google-generative-ai
+# protobuf 3.x 버전으로 고정
+protobuf>=3.20.0,<4
+# google-generative-ai 최신 안정 버전으로 고정
+google-generative-ai==0.3.1
