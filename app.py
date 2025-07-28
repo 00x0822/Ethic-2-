@@ -25,18 +25,18 @@ def extract_user_lines(uploaded_file, speaker_name):
     pattern = rf"\[{re.escape(speaker_name)}\] \[[^\]]+\] (.+)"
     return "\n".join(m.group(1) for m in re.finditer(pattern, text))
 
-# --- Gemini REST 호출 함수 (region‑specific endpoint) ---
+# --- Gemini REST 호출 함수 ---
 def generate_content(prompt: str):
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
-        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets 에 추가하세요.")
+        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets에서 키를 추가하세요.")
         return ""
 
-    # 지역 엔드포인트(us-central1)로 호출해야 모델이 존재합니다
+    # ▶️ 전역(global) 엔드포인트: v1beta2 네임스페이스의 text-bison-001
     url = (
-        "https://us-central1-generativelanguage.googleapis.com"
+        "https://generativelanguage.googleapis.com"
         f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
-    )
+    )  # :contentReference[oaicite:0]{index=0}
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
         "prompt": {"text": prompt},
@@ -109,10 +109,10 @@ elif menu == '입력':
         kakao_file   = st.file_uploader("카톡 대화 파일 (.txt)", type="txt")
         submitted    = st.form_submit_button("저장")
 
-    if submitted and kakao_file and data['my_name']:
-        tone_str = extract_user_lines(kakao_file, data['my_name'])
+    if submitted and kakao_file and my_name:
+        tone_str = extract_user_lines(kakao_file, my_name)
         prompt = f"""
-아래는 '{data['my_name']}' 사용자의 카카오톡 대화 일부입니다.  
+아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다.  
 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요.
 
 [대화 예시]
@@ -122,8 +122,8 @@ elif menu == '입력':
 """
         tone_summary = generate_content(prompt)
         st.session_state['user_data'] = {
-            'my_name':      data['my_name'],
-            'partner_name': data['partner_name'],
+            'my_name':      my_name,
+            'partner_name': partner_name,
             'tone_str':     tone_str,
             'tone_summary': tone_summary
         }
@@ -136,7 +136,7 @@ elif menu == '대화':
     partner_input = st.text_input(f"{data['partner_name']}:")
 
     if partner_input:
-        history = "\n".join(f"{s}: {m}" for s,m in st.session_state['chat_history'][-6:])
+        history = "\n".join(f"{s}: {m}" for s, m in st.session_state['chat_history'][-6:])
         prompt = f"""
 당신은 '{data['my_name']}'입니다.  
 말투 요약: {data['tone_summary']}
@@ -160,5 +160,5 @@ elif menu == '대화':
             (data['my_name'],       reply)
         ]
 
-    for s,m in st.session_state['chat_history']:
+    for s, m in st.session_state['chat_history']:
         st.markdown(f"**{s}:** {m}")
