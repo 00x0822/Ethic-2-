@@ -25,16 +25,17 @@ def extract_user_lines(uploaded_file, speaker_name):
     pattern = rf"\[{re.escape(speaker_name)}\] \[[^\]]+\] (.+)"
     return "\n".join(m.group(1) for m in re.finditer(pattern, text))
 
-# --- Gemini REST 호출 함수 ---
+# --- REST 호출용 함수 ---
 def generate_content(prompt: str):
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
         st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets 에 추가하세요.")
         return ""
 
+    # v1beta2 네임스페이스로 호출
     url = (
         "https://generativelanguage.googleapis.com"
-        f"/v1/models/text-bison-001:generateText?key={api_key}"
+        f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
     )
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
@@ -55,7 +56,7 @@ def generate_content(prompt: str):
 
     return res.json()["candidates"][0]["output"]
 
-# --- 세션 초기화 ---
+# --- Streamlit 세션 초기화 ---
 if 'user_data'   not in st.session_state: st.session_state['user_data']   = default_user_data()
 if 'chat_history' not in st.session_state: st.session_state['chat_history'] = []
 if 'menu'        not in st.session_state: st.session_state['menu']        = '홈'
@@ -73,11 +74,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# --- 사이드바 메뉴 버튼 ---
 with st.sidebar:
     st.markdown("## 메뉴")
-    if st.button("🏠 홈"):          st.session_state['menu']='홈'
-    if st.button("✍ 입력"):        st.session_state['menu']='입력'
-    if st.button("💬 대화하기"):    st.session_state['menu']='대화'
+    if st.button("🏠 홈"):        st.session_state['menu'] = '홈'
+    if st.button("✍ 입력"):      st.session_state['menu'] = '입력'
+    if st.button("💬 대화하기"):  st.session_state['menu'] = '대화'
 
 menu = st.session_state['menu']
 
@@ -107,10 +109,10 @@ elif menu == '입력':
         kakao_file   = st.file_uploader("카톡 대화 파일 (.txt)", type="txt")
         submitted    = st.form_submit_button("저장")
 
-    if submitted and kakao_file and my_name:
-        tone_str = extract_user_lines(kakao_file, my_name)
+    if submitted and kakao_file and data.get('my_name'):
+        tone_str = extract_user_lines(kakao_file, data['my_name'])
         prompt = f"""
-아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다.  
+아래는 '{data['my_name']}' 사용자의 카카오톡 대화 일부입니다.  
 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요.
 
 [대화 예시]
@@ -120,8 +122,8 @@ elif menu == '입력':
 """
         tone_summary = generate_content(prompt)
         st.session_state['user_data'] = {
-            'my_name':      my_name,
-            'partner_name': partner_name,
+            'my_name':      data['my_name'],
+            'partner_name': data['partner_name'],
             'tone_str':     tone_str,
             'tone_summary': tone_summary
         }
@@ -134,7 +136,7 @@ elif menu == '대화':
     partner_input = st.text_input(f"{data['partner_name']}:")
 
     if partner_input:
-        history = "\n".join(f"{s}: {m}" for s,m in st.session_state['chat_history'][-6:])
+        history = "\n".join(f"{s}: {m}" for s, m in st.session_state['chat_history'][-6:])
         prompt = f"""
 당신은 '{data['my_name']}'입니다.  
 말투 요약: {data['tone_summary']}
@@ -152,9 +154,11 @@ elif menu == '대화':
 {data['my_name']}:
 """
         reply = generate_content(prompt)
-        reply = re.sub(r'[^\w\s가-힣\.,\?!]','',reply)
-        st.session_state['chat_history'] += [(data['partner_name'], partner_input),
-                                            (data['my_name'],    reply)]
+        reply = re.sub(r'[^\w\s가-힣\.,\?!]', '', reply)
+        st.session_state['chat_history'] += [
+            (data['partner_name'], partner_input),
+            (data['my_name'], reply)
+        ]
 
     for s, m in st.session_state['chat_history']:
         st.markdown(f"**{s}:** {m}")
