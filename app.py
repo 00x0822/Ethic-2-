@@ -29,23 +29,24 @@ def extract_user_lines(uploaded_file, speaker_name):
         lines.append(match.group(1))
     return "\n".join(lines)
 
-# --- REST 호출용 함수 ---
 def generate_content(prompt: str):
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
         st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Secrets를 확인하세요.")
         return ""
 
-    # API 키를 ?key= 로 붙입니다.
+    # 키는 ?key=… 로 붙이고, 헤더에서 Authorization 제거
     url = (
         "https://generativelanguage.googleapis.com"
         f"/v1beta2/models/chat-bison-001:generateMessage?key={api_key}"
     )
-    headers = {
-        "Content-Type": "application/json; charset=UTF-8",
-    }
+    headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
-        "prompt": {"text": prompt},
+        "prompt": {
+            "messages": [
+                {"author": "user", "content": prompt}
+            ]
+        },
         "temperature": 0.7,
         "candidateCount": 1,
     }
@@ -53,14 +54,15 @@ def generate_content(prompt: str):
     try:
         res = requests.post(url, headers=headers, json=body, timeout=30)
         res.raise_for_status()
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError:
         st.error(f"❗ API 호출 오류 {res.status_code}\n{res.text}")
         return ""
     except requests.exceptions.RequestException as e:
         st.error(f"❗ 네트워크 오류: {e}")
         return ""
 
-    return res.json()["candidates"][0]["message"]["content"]
+    data = res.json()
+    return data["candidates"][0]["message"]["content"]
 
 
 # --- 세션 초기화 ---
