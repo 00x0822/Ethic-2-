@@ -35,18 +35,14 @@ def generate_content(prompt: str):
         st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Secrets를 확인하세요.")
         return ""
 
-    # 키는 ?key=… 로 붙이고, 헤더에서 Authorization 제거
+    # text-bison-001:generateText 엔드포인트 (API 키는 쿼리 파라미터로)
     url = (
         "https://generativelanguage.googleapis.com"
-        f"/v1beta2/models/chat-bison-001:generateMessage?key={api_key}"
+        f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
     )
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
-        "prompt": {
-            "messages": [
-                {"author": "user", "content": prompt}
-            ]
-        },
+        "prompt": {"text": prompt},
         "temperature": 0.7,
         "candidateCount": 1,
     }
@@ -62,7 +58,9 @@ def generate_content(prompt: str):
         return ""
 
     data = res.json()
-    return data["candidates"][0]["message"]["content"]
+    # text-bison-001은 candidates[].output 필드에 결과가 옵니다
+    return data["candidates"][0]["output"]
+
 
 
 # --- 세션 초기화 ---
