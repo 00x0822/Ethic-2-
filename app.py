@@ -8,9 +8,6 @@ from collections import Counter
 st.set_page_config(page_title="디지털 유령", layout="wide")
 st.title("🌌 디지털 유령: 나의 AI 분신 챗봇과 대화하기")
 
-# 간단한 소개
-st.markdown("AI 분신 챗봇과 자연스럽게 대화해보세요. ")
-
 # --- 기본값 함수 ---
 def default_user_data():
     return {
@@ -20,22 +17,19 @@ def default_user_data():
         'tone_summary': ""
     }
 
-# --- 카톡 말투 추출 ---
+# --- 카톡 말투 추출 함수 ---
 def extract_user_lines(uploaded_file, speaker_name):
     text = uploaded_file.read().decode('utf-8')
-    lines = []
     pattern = rf"\[{re.escape(speaker_name)}\] \[[^\]]+\] (.+)"
-    for match in re.finditer(pattern, text):
-        lines.append(match.group(1))
-    return "\n".join(lines)
+    return "\n".join(m.group(1) for m in re.finditer(pattern, text))
 
+# --- REST 호출용 통합 함수 ---
 def generate_content(prompt: str):
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
-        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Secrets를 확인하세요.")
+        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets 에 추가하세요.")
         return ""
 
-    # text-bison-001:generateText 엔드포인트 (API 키는 쿼리 파라미터로)
     url = (
         "https://generativelanguage.googleapis.com"
         f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
@@ -58,12 +52,9 @@ def generate_content(prompt: str):
         return ""
 
     data = res.json()
-    # text-bison-001은 candidates[].output 필드에 결과가 옵니다
     return data["candidates"][0]["output"]
 
-
-
-# --- 세션 초기화 ---
+# --- Streamlit 세션 초기화 ---
 if 'user_data' not in st.session_state:
     st.session_state['user_data'] = default_user_data()
 if 'chat_history' not in st.session_state:
@@ -71,17 +62,17 @@ if 'chat_history' not in st.session_state:
 if 'menu' not in st.session_state:
     st.session_state['menu'] = '홈'
 
-# --- 사이드바 메뉴 스타일링 ---
+# --- 사이드바 메뉴 설정 ---
 st.markdown("""
-    <style>
-      [data-testid="stSidebar"] .stButton > button {
-        background: none; border: none; padding: 0;
-        color: #1f77b4; font-size: 1rem; text-align: left;
-      }
-      [data-testid="stSidebar"] .stButton > button:hover {
-        text-decoration: underline;
-      }
-    </style>
+<style>
+  [data-testid="stSidebar"] .stButton > button {
+    background: none; border: none; padding: 0;
+    color: #1f77b4; font-size: 1rem; text-align: left;
+  }
+  [data-testid="stSidebar"] .stButton > button:hover {
+    text-decoration: underline;
+  }
+</style>
 """, unsafe_allow_html=True)
 
 with st.sidebar:
@@ -103,13 +94,13 @@ AI 분신 챗봇과 자연스럽게 대화하도록 돕습니다.
 
 **사용법**  
 1. **카카오톡 대화 저장**  
-   - 채팅방 우측 상단 **메뉴(≡)** → **대화내용** → **대화 내보내기** → **txt 파일** 저장  
+   - 채팅방 우측 상단 **메뉴(≡)** → **대화내용** → **대화 내보내기** → **txt 파일** 형태로 저장  
    - 저장된 `.txt` 파일을 준비하세요.  
 
-2. **프로그램 사용**  
-   - ✍ ‘입력’ 메뉴에서 내 이름과 `.txt` 파일 업로드 후 저장  
-   - 💬 ‘대화하기’ 메뉴에서 상대방 역할로 질문 입력 → 대화 시작  
-   - AI 분신이 분석된 말투를 반영해 자연스럽게 응답합니다.
+2. **앱 사용**  
+   - ✍ ‘입력’ 메뉴에서 내 이름과 `.txt` 파일 업로드 후 **저장**  
+   - 💬 ‘대화하기’ 메뉴에서 상대방 역할로 질문을 입력해 **대화 시작**  
+   - AI 분신이 분석된 말투를 반영해 응답합니다.
 """)
 
 # --- 데이터 입력 화면 ---
@@ -127,8 +118,8 @@ elif menu == '입력':
         if kakao_file and my_name:
             tone_str = extract_user_lines(kakao_file, my_name)
             prompt = f"""
-다음은 '{my_name}' 사용자가 카카오톡에서 실제 쓴 짧은 대화입니다.
-말투의 스타일적 특징(이모티콘 사용, 문장 마무리, 말끝 표현, 어투 등)을 요약해 주세요.
+아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다.  
+이 사용자의 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요.
 
 [대화 예시]
 {textwrap.shorten(tone_str, width=2000)}
@@ -138,9 +129,9 @@ elif menu == '입력':
             tone_summary = generate_content(prompt)
 
         st.session_state['user_data'] = {
-            'my_name': my_name,
+            'my_name':      my_name,
             'partner_name': partner_name,
-            'tone_str': tone_str,
+            'tone_str':     tone_str,
             'tone_summary': tone_summary
         }
         st.success("✅ 데이터가 저장되었습니다. ‘대화하기’로 이동하세요.")
@@ -156,28 +147,28 @@ elif menu == '대화':
     partner_input = st.text_input(f"{partner_name}:")
 
     if partner_input:
-        # 최근 대화 내역
+        # 최근 대화 3쌍만
         history = ""
         for spk, msg in st.session_state['chat_history'][-6:]:
             history += f"{spk}: {msg}\n"
 
         prompt = f"""
-당신은 '{my_name}'입니다.
-말투 분석: {tone_summary}
+당신은 '{my_name}'입니다.  
+말투 요약: {tone_summary}
 
-대화 히스토리:
+대화 기록:
 {history}{partner_name}: {partner_input}
 
-— 지시 사항 —
-1) 친구에게 편하게 대화하듯 자연스럽고 구체적으로 답변하세요.
-2) 말투 스타일은 분석 요약을 살짝 반영하되 과도하게 재현하지 마세요.
-3) 질문 요지에 집중하고 필요 정보만 간결히 제공하세요.
-4) 이모티콘은 사용하지 마세요.
+— 지시 사항 —  
+1) 친구처럼 편안하고 구체적으로 답변하세요.  
+2) 말투는 분석 요약을 살짝 반영하되 과장 금지.  
+3) 이모티콘은 **사용 금지**.  
+4) 불필요한 장황 설명 자제.
 
-{my_name}:"""
-
+{my_name}:
+"""
         reply = generate_content(prompt)
-        # 혹시 남은 이모티콘 제거
+        # 이모티콘 제거
         reply = re.sub(r'[^\w\s가-힣\.,\?!]', '', reply)
 
         st.session_state['chat_history'].append((partner_name, partner_input))
