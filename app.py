@@ -1,5 +1,5 @@
 import streamlit as st
-import requests
+import google.generativeai as genai
 import re
 import textwrap
 from collections import Counter
@@ -10,6 +10,14 @@ st.title("🌌 디지털 유령: 나의 AI 분신 챗봇과 대화하기")
 
 # --- 간단 소개 ---
 st.markdown("Streamlit에 업로드한 카톡 대화 파일로 AI 분신과 말투 그대로 대화해 보세요.")
+
+# --- Gemini API 초기화 ---
+api_key = st.secrets.get("GOOGLE_API_KEY")
+if not api_key:
+    st.error("❗ 환경 변수 ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets 에 추가해주세요.")
+else:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
 
 # --- 기본값 함수 ---
 def default_user_data():
@@ -26,38 +34,7 @@ def extract_user_lines(uploaded_file, speaker_name):
     pattern = rf"\[{re.escape(speaker_name)}\] \[[^\]]+\] (.+)"
     return "\n".join(m.group(1) for m in re.finditer(pattern, text))
 
-# --- REST 호출용 함수 ---
-def generate_content(prompt: str):
-    api_key = st.secrets.get("GOOGLE_API_KEY")
-    if not api_key:
-        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets 에 추가하세요.")
-        return ""
-
-    url = (
-        "https://generativelanguage.googleapis.com"
-        f"/v1/models/text-bison-001:generateText?key={api_key}"
-    )
-    headers = {"Content-Type": "application/json; charset=UTF-8"}
-    body = {
-        "prompt": {"text": prompt},
-        "temperature": 0.7,
-        "candidateCount": 1,
-    }
-
-    try:
-        res = requests.post(url, headers=headers, json=body, timeout=30)
-        res.raise_for_status()
-    except requests.exceptions.HTTPError:
-        st.error(f"❗ API 호출 오류 {res.status_code}\n{res.text}")
-        return ""
-    except requests.exceptions.RequestException as e:
-        st.error(f"❗ 네트워크 오류: {e}")
-        return ""
-
-    data = res.json()
-    return data["candidates"][0]["output"]
-
-# --- 세션 초기화 ---
+# --- Streamlit 세션 초기화 ---
 if 'user_data' not in st.session_state:
     st.session_state['user_data'] = default_user_data()
 if 'chat_history' not in st.session_state:
@@ -65,7 +42,7 @@ if 'chat_history' not in st.session_state:
 if 'menu' not in st.session_state:
     st.session_state['menu'] = '홈'
 
-# --- 사이드바 메뉴 스타일링 ---
+# --- 사이드바 메뉴 스타일링 (텍스트 링크처럼) ---
 st.markdown("""
 <style>
   [data-testid="stSidebar"] .stButton > button {
@@ -118,18 +95,20 @@ elif menu == '입력':
     if submitted:
         tone_str     = ""
         tone_summary = ""
-        if kakao_file and my_name:
-            tone_str = extract_user_lines(kakao_file, my_name)
-            prompt = f"""
-아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다.  
-이 사용자의 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요.
+        if kakao_file and model:
+            tone_str = extract_user_lines(kakao_file, data['my_name'])
+            # 말투 요약 프롬프트
+            analysis_prompt = f"""
+아래는 '{data['my_name']}' 사용자가 실제 카카오톡에서 쓴 대화 일부입니다.
+이 대화에서 나타나는 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요.
 
 [대화 예시]
 {textwrap.shorten(tone_str, width=2000)}
 
-[요약]
+[말투 요약]
 """
-            tone_summary = generate_content(prompt)
+            resp = model.generate_content(analysis_prompt)
+            tone_summary = resp.text.strip()
 
         st.session_state['user_data'] = {
             'my_name':      my_name,
@@ -149,27 +128,30 @@ elif menu == '대화':
     st.header(f"💬 {my_name}의 AI 분신과 {partner_name} 대화 중")
     partner_input = st.text_input(f"{partner_name}:")
 
-    if partner_input:
-        history = ""
+    if partner_input and model:
+        # 최신 3쌍(6줄) 히스토리
+        hist = ""
         for spk, msg in st.session_state['chat_history'][-6:]:
-            history += f"{spk}: {msg}\n"
+            hist += f"{spk}: {msg}\n"
 
-        prompt = f"""
-당신은 '{my_name}'입니다.  
+        # 대화 생성 프롬프트
+        chat_prompt = f"""
+당신은 '{my_name}'입니다.
 말투 요약: {tone_summary}
 
 대화 기록:
-{history}{partner_name}: {partner_input}
+{hist}{partner_name}: {partner_input}
 
 — 지시 사항 —  
 1) 친구처럼 편안하고 구체적으로 답변하세요.  
 2) 말투는 분석 요약을 살짝 반영하되 과장 금지.  
-3) 이모티콘은 **사용 금지**.  
-4) 필요 정보만 간결히 제공합니다.
+3) 이모티콘은 사용 금지.  
 
 {my_name}:
 """
-        reply = generate_content(prompt)
+        chat_resp = model.generate_content(chat_prompt)
+        reply = chat_resp.text.strip()
+        # 이모티콘 제거
         reply = re.sub(r'[^\w\s가-힣\.,\?!]', '', reply)
 
         st.session_state['chat_history'].append((partner_name, partner_input))
