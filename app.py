@@ -24,23 +24,27 @@ def extract_user_lines(uploaded_file, speaker_name):
 
 # --- Gemini REST 호출 함수 ---
 def generate_content(prompt: str):
-    # Streamlit Secrets에서 키 로드
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
         st.error("❗ GOOGLE_API_KEY가 설정되지 않았습니다. Secrets에서 키를 추가하세요.")
         return ""
 
-    # 사용 가능한 모델: gemini-2.5-pro (리스트에서 확인됨)
     model_id = "gemini-2.5-pro"
-    # generateContent 메서드 사용
-    url = (
-        f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
-    )
+    url = f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
-        "prompt": {"text": prompt},
-        "temperature": 0.7,
-        "candidateCount": 1,
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.7,
+            "candidateCount": 1
+        }
     }
 
     try:
@@ -53,8 +57,12 @@ def generate_content(prompt: str):
         st.error(f"❗ 네트워크 오류: {e}")
         return ""
 
-    # 응답 candidates 배열의 첫 번째 output 반환
-    return res.json().get("candidates", [])[0].get("output", "")
+    # content is under 'candidates' array with 'content' or 'text' key depending on API
+    data = res.json()
+    # Gemini returns 'candidates' list of Content objects where text is in 'text' field
+    if 'candidates' in data and data['candidates']:
+        return data['candidates'][0].get('text', '') or data['candidates'][0].get('output', '')
+    return ""
 
 # --- Streamlit 세션 초기화 ---
 if 'user_data' not in st.session_state:
@@ -160,11 +168,4 @@ elif menu == '대화':
 {data['my_name']}:
 """
         reply = generate_content(prompt)
-        reply = re.sub(r'[^\w\s가-힣\.,\?!]', '', reply)
-        st.session_state['chat_history'] += [
-            (data['partner_name'], partner_input),
-            (data['my_name'], reply)
-        ]
-
-    for s, m in st.session_state['chat_history']:
-        st.markdown(f"**{s}:** {m}")
+        rep
