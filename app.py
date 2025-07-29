@@ -47,8 +47,8 @@ def generate_content(prompt: str) -> str:
     except requests.exceptions.HTTPError as http_err:
         status = http_err.response.status_code if http_err.response else 'Unknown'
         error_msg = http_err.response.text if http_err.response and http_err.response.text else str(http_err)
-        st.error(f"❗ API 호출 오류 {status}
-{error_msg}")
+        st.error("❗ API 호출 오류 {}
+{}".format(status, error_msg))
         return ""
     except requests.exceptions.RequestException as err:
         st.error(f"❗ 네트워크 오류: {err}")
