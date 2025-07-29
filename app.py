@@ -47,8 +47,8 @@ def generate_content(prompt: str) -> str:
         st.error("❗ 요청이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
         return ""
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"❗ API 호출 오류 {http_err.response.status_code}
-{http_err.response.text}")
+        # f-string에서 줄바꿈을 \n으로 처리하여 SyntaxError 방지
+        st.error(f"❗ API 호출 오류 {http_err.response.status_code}\n{http_err.response.text}")
         return ""
     except requests.exceptions.RequestException as err:
         st.error(f"❗ 네트워크 오류: {err}")
@@ -72,11 +72,11 @@ if 'menu' not in st.session_state:
 st.markdown(
     """
     <style>
-      [data-testid="stSidebar"] .stButton > button {
+      [data-testid=\"stSidebar\"] .stButton > button {
         background: none; border: none; padding: 0;
         color: #1f77b4; font-size: 1rem; text-align: left;
       }
-      [data-testid="stSidebar"] .stButton > button:hover {
+      [data-testid=\"stSidebar\"] .stButton > button:hover {
         text-decoration: underline;
       }
     </style>
