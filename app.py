@@ -7,9 +7,6 @@ import textwrap
 st.set_page_config(page_title="디지털 유령", layout="wide")
 st.title("🌌 디지털 유령: 나의 AI 분신 챗봇과 대화하기")
 
-# --- 간단 소개 ---
-st.markdown("Streamlit에 업로드한 카톡 대화 파일로 AI 분신과 말투 그대로 대화해 보세요.")
-
 # --- 기본값 함수 ---
 def default_user_data():
     return {
@@ -27,13 +24,17 @@ def extract_user_lines(uploaded_file, speaker_name):
 
 # --- Gemini REST 호출 함수 ---
 def generate_content(prompt: str):
+    # Streamlit Secrets에서 키 로드
     api_key = st.secrets.get("GOOGLE_API_KEY")
     if not api_key:
         st.error("❗ GOOGLE_API_KEY가 설정되지 않았습니다. Secrets에서 키를 추가하세요.")
         return ""
+
+    # 사용 가능한 모델: gemini-2.5-pro (리스트에서 확인됨)
+    model_id = "gemini-2.5-pro"
+    # generateContent 메서드 사용
     url = (
-        "https://generativelanguage.googleapis.com"
-        f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
+        f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
     )
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
@@ -41,6 +42,7 @@ def generate_content(prompt: str):
         "temperature": 0.7,
         "candidateCount": 1,
     }
+
     try:
         res = requests.post(url, headers=headers, json=body, timeout=30)
         res.raise_for_status()
@@ -50,7 +52,9 @@ def generate_content(prompt: str):
     except requests.exceptions.RequestException as e:
         st.error(f"❗ 네트워크 오류: {e}")
         return ""
-    return res.json()["candidates"][0]["output"]
+
+    # 응답 candidates 배열의 첫 번째 output 반환
+    return res.json().get("candidates", [])[0].get("output", "")
 
 # --- Streamlit 세션 초기화 ---
 if 'user_data' not in st.session_state:
@@ -114,7 +118,7 @@ elif menu == '입력':
     if submitted and kakao_file and my_name:
         tone_str = extract_user_lines(kakao_file, my_name)
         prompt = f"""
-아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다。  
+아래는 '{my_name}' 사용자의 카카오톡 대화 일부입니다。
 말투 스타일(이모티콘 사용, 말끝 어미, 어투 성향 등)을 간단히 요약해 주세요。
 
 [대화 예시]
@@ -140,20 +144,20 @@ elif menu == '대화':
     if partner_input:
         history = "\n".join(f"{s}: {m}" for s, m in st.session_state['chat_history'][-6:])
         prompt = f"""
-당신은 '{data['my_name']}'입니다。  
+당신은 '{data['my_name']}'입니다。
 말투 요약: {data['tone_summary']}
 
 대화 기록：
 {history}
 {data['partner_name']}: {partner_input}
 
-— 지시 사항 —  
-1) 친구처럼 편안하고 구체적으로 답변하세요。  
-2) 말투는 분석 요약을 살짝 반영하되 과장 금지。  
-3) 이모티콘은 사용 금지。  
+— 지시 사항 —
+1) 친구처럼 편안하고 구체적으로 답변하세요。
+2) 말투는 분석 요약을 살짝 반영하되 과장 금지。
+3) 이모티콘은 사용 금지。
 4) 필요 정보만 간결히 제공합니다。
 
-{data['my_name']}: 
+{data['my_name']}:
 """
         reply = generate_content(prompt)
         reply = re.sub(r'[^\w\s가-힣\.,\?!]', '', reply)
