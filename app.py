@@ -32,10 +32,14 @@ def generate_content(prompt: str) -> str:
 
     # 사용할 모델 ID만 변경 가능합니다
     model_id = "gemini-2.5-flash"
-    url = f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
+    # v1beta2 endpoint 사용 (prompt 기반 요청)
+    url = f"https://generativelanguage.googleapis.com/v1beta2/models/{model_id}:generateText?key={api_key}"
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
         "prompt": {"text": prompt},
+        "temperature": 0.7,
+        "candidateCount": 1
+    },
         "temperature": 0.7,
         "candidateCount": 1
     }
