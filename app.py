@@ -32,7 +32,6 @@ def generate_content(prompt: str) -> str:
     model_id = "gemini-2.5-pro"
     url = f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json; charset=UTF-8"}
-    # prompt 기반 요청 바디로 변경
     body = {
         "prompt": {"text": prompt},
         "temperature": 0.7,
@@ -45,10 +44,11 @@ def generate_content(prompt: str) -> str:
     except requests.exceptions.Timeout:
         st.error("❗ 요청이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
         return ""
-        except requests.exceptions.HTTPError as http_err:
+    except requests.exceptions.HTTPError as http_err:
         # API 호출 오류 처리
+        status = http_err.response.status_code if http_err.response is not None else 'Unknown'
         error_msg = http_err.response.text if http_err.response is not None else str(http_err)
-        st.error(f"❗ API 호출 오류 {http_err.response.status_code if http_err.response is not None else 'Unknown'}
+        st.error(f"❗ API 호출 오류 {status}
 {error_msg}")
         return ""
     except requests.exceptions.RequestException as err:
