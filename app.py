@@ -1,7 +1,14 @@
+import os
+from dotenv import load_dotenv
 import streamlit as st
 import requests
 import re
 import textwrap
+
+# --- .env에서 API 키 로드 ---
+# 프로젝트 루트에 .env 파일을 만들고 아래와 같이 설정하세요:
+# GOOGLE_API_KEY=YOUR_GEMINI_API_KEY
+load_dotenv()
 
 # --- 페이지 설정 ---
 st.set_page_config(page_title="디지털 유령", layout="wide")
@@ -27,16 +34,15 @@ def extract_user_lines(uploaded_file, speaker_name):
 
 # --- Gemini REST 호출 함수 ---
 def generate_content(prompt: str):
-    api_key = st.secrets.get("GOOGLE_API_KEY")
+    api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. Settings → Secrets에서 키를 추가하세요.")
+        st.error("❗ ‘GOOGLE_API_KEY’가 설정되지 않았습니다. .env 파일에 키를 추가하세요.")
         return ""
 
-    # ▶️ 전역(global) 엔드포인트: v1beta2 네임스페이스의 text-bison-001
     url = (
         "https://generativelanguage.googleapis.com"
         f"/v1beta2/models/text-bison-001:generateText?key={api_key}"
-    )  # :contentReference[oaicite:0]{index=0}
+    )
     headers = {"Content-Type": "application/json; charset=UTF-8"}
     body = {
         "prompt": {"text": prompt},
