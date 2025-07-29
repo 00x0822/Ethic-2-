@@ -32,23 +32,22 @@ def generate_content(prompt: str) -> str:
     model_id = "gemini-2.5-pro"
     url = f"https://generativelanguage.googleapis.com/v1/models/{model_id}:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json; charset=UTF-8"}
+    # prompt 기반 요청 바디로 변경
     body = {
-        "contents": [
-            {"role": "user", "parts": [{"text": prompt}]}  
-        ],
-        "generationConfig": {"temperature": 0.7, "candidateCount": 1}
+        "prompt": {"text": prompt},
+        "temperature": 0.7,
+        "candidateCount": 1
     }
 
     try:
-        # timeout을 60초로 연장하여 네트워크 지연 대응
         response = requests.post(url, headers=headers, json=body, timeout=60)
         response.raise_for_status()
     except requests.exceptions.Timeout:
         st.error("❗ 요청이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
         return ""
     except requests.exceptions.HTTPError as http_err:
-        # f-string에서 줄바꿈을 \n으로 처리하여 SyntaxError 방지
-        st.error(f"❗ API 호출 오류 {http_err.response.status_code}\n{http_err.response.text}")
+        st.error(f"❗ API 호출 오류 {http_err.response.status_code}
+{http_err.response.text}")
         return ""
     except requests.exceptions.RequestException as err:
         st.error(f"❗ 네트워크 오류: {err}")
