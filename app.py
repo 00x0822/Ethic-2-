@@ -44,9 +44,9 @@ def generate_content(prompt: str) -> str:
     except requests.exceptions.Timeout:
         st.error("❗ 요청이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
         return ""
-        except requests.exceptions.HTTPError as http_err:
+    except requests.exceptions.HTTPError as http_err:
         status = http_err.response.status_code if http_err.response else 'Unknown'
-        error_msg = http_err.response.text if http_err.response else str(http_err)
+        error_msg = http_err.response.text if http_err.response and http_err.response.text else str(http_err)
         st.error(f"❗ API 호출 오류 {status}
 {error_msg}")
         return ""
