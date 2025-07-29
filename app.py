@@ -40,10 +40,15 @@ def generate_content(prompt: str) -> str:
     }
 
     try:
-        response = requests.post(url, headers=headers, json=body, timeout=30)
+        # timeout을 60초로 연장하여 네트워크 지연 대응
+        response = requests.post(url, headers=headers, json=body, timeout=60)
         response.raise_for_status()
+    except requests.exceptions.Timeout:
+        st.error("❗ 요청이 너무 오래 걸립니다. 잠시 후 다시 시도해 주세요.")
+        return ""
     except requests.exceptions.HTTPError as http_err:
-        st.error(f"❗ API 호출 오류 {http_err.response.status_code}\n{http_err.response.text}")
+        st.error(f"❗ API 호출 오류 {http_err.response.status_code}
+{http_err.response.text}")
         return ""
     except requests.exceptions.RequestException as err:
         st.error(f"❗ 네트워크 오류: {err}")
